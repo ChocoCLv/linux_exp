@@ -25,7 +25,7 @@ bool CA_LL::Serialize(ofstream &out)
     size = sizeof(i);
     out.write((char*)&size, sizeof(size));
     out.write((char*)&i, size);
-    cout<<"serialize CA_LL:\n\ti:"<<i;
+    cout<<"serialize CA_LL:\n\ti:"<<i<<endl;
 }
 bool CA_LL::Deserialize(const char *pFilePath)
 {
@@ -40,5 +40,5 @@ bool CA_LL::Deserialize(ifstream &in)
     unsigned int size;
     in.read((char*)&size, sizeof(size));
     in.read((char*)&i, size);
-    cout<<"deserialize CA_LL:\n\ti:"<<i;
+    cout<<"deserialize CA_LL:\n\ti:"<<i<<endl;
 }
