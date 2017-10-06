@@ -5,23 +5,34 @@ A::A()
     i = 0;
 }
 
-explicit A::A(int j)
+A::A(int j)
 {
     i = j;
 }
 
-virtual bool A::Serialize(ofstream & out)
+bool A::Serialize(ofstream & out)
 {
-
+  	unsigned int size;
+    size = sizeof(i);
+    out.write((char*)&size, sizeof(size));
+    cout<<"serialize size:"<<size<<endl;
+    out.write((char*)&i, size);
+    cout<<"serialize A.i:"<<i<<endl;
 }
 
-virtual bool A::GetType(int & type)
+bool A::GetType(int & type)
 {
-    type = 0;
+    type = 1;
     return 0;
 }
 
-virtual ILSerializable * A::Deserialize(ifstream & in)
+ILSerializable * A::Deserialize(ifstream & in)
 {
-
+	A *a = new A();
+	unsigned int size;
+    in.read((char*)&size, sizeof(size));
+    cout<<"deserialize size:"<<size<<endl;
+    in.read((char*)&(a->i), size);
+    cout<<"deserialize A.i:"<<a->i<<endl;
+    return a;
 }
