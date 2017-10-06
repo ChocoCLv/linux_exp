@@ -1,4 +1,6 @@
-#include "Serializer.h"
+#include "CLSerializer.h"
+#include "A.h"
+#include "ILSerializable.h"
 #include <vector>
 using namespace std;
 
@@ -8,26 +10,18 @@ main(int argc, char* args[])
     if(argc != 2)
         return -1;
 
-    Serialized s1, s2;
-    CA_LL a;
-    CB_LL b;
-    
-    a.setI(20);
-    b.setFloat(3.14);
-    b.setString("hello");
+    A a1(1);
+    A a2(2);
 
-    s1.nType = 1;
-    s1.pObj = &a;
-    
-    s2.nType = 2;
-    s2.pObj = &b;
+    std::vector<ILSerializable*> v;
+    v.push_back(&a1);
+    v.push_back(&a2);
 
-    vector<Serialized> v;
-    v.push_back(s1);
-    v.push_back(s2);
-
-    Serializer s;
+    CLSerializer s;
     s.Serialize(args[1], v);
+    A a3, a4;
+    s.regist(&a3);
     s.Deserialize(args[1], v);
+    
     return 0;
 }
