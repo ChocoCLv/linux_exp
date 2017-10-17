@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void PluginManager::parsePluginDir()
+void PluginManager::ParsePluginDir()
 {
     struct dirent * ptr;
     DIR * dir;
@@ -21,9 +21,10 @@ void PluginManager::parsePluginDir()
         v_soPath.push_back(so_path);
         cout<<"get so path: "<<so_path<<endl;
     }
+    closedir(dir);
 }
 
-void PluginManager::parseFunction()
+void PluginManager::ParseFunction()
 {
     void * handle;
     for(int i = 0; i < v_soPath.size(); i++)
@@ -36,44 +37,44 @@ void PluginManager::parseFunction()
             cout<<"get handle error: "<< dlerror()<<endl;
             return;
         }
-        funso.print = (Print)dlsym(handle, "Print");
-        if(funso.print == NULL)
+        funso.Print = (PrintFunc)dlsym(handle, "Print");
+        if(funso.Print == NULL)
         {
             cout<<"get print error: "<<dlerror()<<endl;
             return;
         }
-        funso.help = (Help)dlsym(handle, "Help");
-        if(funso.help == NULL)
+        funso.Help = (HelpFunc)dlsym(handle, "Help");
+        if(funso.Help == NULL)
         {
             cout<<"get help error: "<< dlerror()<<endl;
             return;
         }
 
-        funso.getID = (GetId)dlsym(handle, "GetID");
-         if(funso.getID == NULL)
+        funso.GetID = (GetIDFunc)dlsym(handle, "GetID");
+         if(funso.GetID == NULL)
         {
             cout<<"get getID error: "<< dlerror()<<endl;
             return;
         }
-        m_funcSo[funso.getID()] = funso;      
+        m_funcSo[funso.GetID()] = funso;      
     }
 }
 
-void PluginManager::help()
+void PluginManager::Help()
 {
     map<int, FuncSo>::iterator it;
     for(it = m_funcSo.begin(); it != m_funcSo.end(); it++)
     {
-        it->second.help();
+        it->second.Help();
     }
 }      
 
-void PluginManager::callFunc(int func_id)
+void PluginManager::CallFunc(int funcId)
 {
-    if(m_funcSo.find(func_id) == m_funcSo.end())
+    if(m_funcSo.find(funcId) == m_funcSo.end())
     {
         cout<<"func not found"<<endl;
         return;
     }
-    m_funcSo[func_id].print();
+    m_funcSo[funcId].Print();
 }

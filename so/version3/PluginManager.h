@@ -6,15 +6,15 @@
 #include <dlfcn.h>
 #include <iostream>
 using namespace std;
-typedef void (*Print)();
-typedef void (*Help)();
-typedef int (*GetId)();
+typedef void (*PrintFunc)();
+typedef void (*HelpFunc)();
+typedef int (*GetIDFunc)();
 
 typedef struct FunctionSo
 {
-    Print print;
-    Help help;
-    GetId getID;
+    PrintFunc Print;
+    HelpFunc Help;
+    GetIDFunc GetID;
 }FuncSo;
 
 class PluginManager
@@ -24,8 +24,8 @@ private:
     vector<string> v_soPath;
 
 public:
-    void parsePluginDir();
-    void parseFunction();
-    void help();
-    void callFunc(int func_id);
+    void ParsePluginDir();
+    void ParseFunction();
+    void Help();
+    void CallFunc(int funcId);
 };

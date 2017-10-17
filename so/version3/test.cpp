@@ -12,17 +12,17 @@ int main(int argc, char * args[])
         return -1;
     }
     PluginManager pl;
-    pl.parsePluginDir();
-    pl.parseFunction();
+    pl.ParsePluginDir();
+    pl.ParseFunction();
     if(strcmp(args[1], "help") == 0)
     {
         cout<<"debug: print help msg"<<endl;
-        pl.help();
+        pl.Help();
     }
     else
     {
         func_id = atoi(args[1]);
-        pl.callFunc(func_id);
+        pl.CallFunc(func_id);
     }
     return 0;
 }
