@@ -6,7 +6,7 @@
 #include <errno.h>
 
 #define DATA_BLOCK_SIZE 4096
-#define THREAD_READ_NUM 10
+#define THREAD_READ_NUM 1
 #define THREAD_WRITE_NUM 10
 
 int fd_pipe[2];
@@ -57,6 +57,7 @@ void * thread_read(void * arg)
 
 void * thread_write()
 {
+    int write_times = 0;
     int n;
     unsigned long tid = pthread_self();
     data_buff *buf;
@@ -71,13 +72,14 @@ void * thread_write()
         }
         else if(n == 0)
         {
-            printf("write thread %lu : exit\n", tid);
+            printf("write thread %lu : write times: %d\n", tid,write_times);
             pthread_exit((void*)2);
             break;
         }
         else
         {
             pwrite(fd_write, buf->data, buf->data_size, buf->offset);
+            write_times++;
             free(buf);
         }
     }
@@ -107,7 +109,7 @@ int main(int argc, char * args[])
         return -1;
     }
     //open file write
-    fd_write = open(filename_write, O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR);
+    fd_write = open(filename_write, O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
     if(fd_write == -1)
     {
         printf("open file write error: %s", strerror(errno));
