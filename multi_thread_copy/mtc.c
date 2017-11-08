@@ -6,14 +6,17 @@
 #include <errno.h>
 
 #define DATA_BLOCK_SIZE 4096
-#define THREAD_READ_NUM 1
-#define THREAD_WRITE_NUM 10
-
+#define READ_THREAD_NUM 1
+#define WRITE_THREAD_NUM 10
+#define MAX_THREAD_NUM 50
 int fd_pipe[2];
 int fd_write = -1;
 int fd_read = -1;
 char * filename_read = NULL;
 char * filename_write = NULL;
+int read_thread_num;
+int write_thread_num;
+
 
 typedef struct file_data_buff
 {
@@ -50,7 +53,8 @@ void * thread_read(void * arg)
             buf->data_size = size_read;
             buf->offset = DATA_BLOCK_SIZE * block_read_seq;
             write(fd_pipe[1], (void*)&buf, sizeof(buf)); 
-            block_read_seq += THREAD_READ_NUM;
+            block_read_seq += READ_THREAD_NUM;
+            //printf("read thread %lu read size: %d, offset: %d\n",tid, size_read, buf->offset);
         }
     }
 }
@@ -78,6 +82,7 @@ void * thread_write()
         }
         else
         {
+            //printf("write thread %lu write size: %d, offset: %d\n",tid, buf->data_size, buf->offset);
             pwrite(fd_write, buf->data, buf->data_size, buf->offset);
             write_times++;
             free(buf);
@@ -90,16 +95,30 @@ int main(int argc, char * args[])
     int i = 0;
     int err;
     void * tret;
-    pthread_t tid_read[THREAD_READ_NUM];
-    pthread_t tid_write[THREAD_WRITE_NUM];
+    int read_thread_num = READ_THREAD_NUM;
+    int write_thread_num = WRITE_THREAD_NUM;
+    pthread_t tid_read[MAX_THREAD_NUM];
+    pthread_t tid_write[MAX_THREAD_NUM];
 
-    if(argc != 3)
+    if(argc < 3)
     {
         printf("parameter error\n");
         return -1;
     }
     filename_read = args[1];
     filename_write = args[2];
+    if(argc == 4)
+    {
+        write_thread_num = atoi(args[3]);
+        if(write_thread_num > MAX_THREAD_NUM)
+        {
+            printf("too many write threads\n");
+            return -1;
+        }
+    }
+    printf("run parapmeters:\n\tread thread num:%d\n\twrite thread num:%d\n\tsource file name:%s\n\tdestination file name:%s\n",
+            read_thread_num,write_thread_num,filename_read,filename_write);
+
 
     //open file read
     fd_read = open(filename_read, O_RDONLY);
@@ -126,7 +145,7 @@ int main(int argc, char * args[])
     }
 
     //create file read thread
-    for(i = 0; i < THREAD_READ_NUM; i++)
+    for(i = 0; i < read_thread_num; i++)
     {
         err = pthread_create(&tid_read[i], NULL, thread_read, (void*)i);
         if(err != 0)
@@ -137,7 +156,7 @@ int main(int argc, char * args[])
     }
 
     //create file write thread
-    for(i = 0; i < THREAD_WRITE_NUM; i++)
+    for(i = 0; i < write_thread_num; i++)
     {
         err = pthread_create(&tid_write[i], NULL, thread_write, NULL);
         if(err != 0)
@@ -147,24 +166,24 @@ int main(int argc, char * args[])
         }
     }
     //wait read thread exit
-    for(i = 0; i < THREAD_READ_NUM; i++)
+    for(i = 0; i < read_thread_num; i++)
     {
         err = pthread_join(tid_read[i], &tret);
         if(err != 0)
         {
-            printf("can't create thread\n");
+            printf("read thread exit error\n");
             return -1;
         }
     }
     close(fd_pipe[1]);
     close(fd_read);
     //wait write thread exit
-    for(i = 0; i < THREAD_WRITE_NUM; i++)
+    for(i = 0; i < write_thread_num; i++)
     {
         err = pthread_join(tid_write[i], &tret);
         if(err != 0)
         {
-            printf("can't create thread\n");
+            printf("write thread exit error\n");
             return -1;
         }
     }
