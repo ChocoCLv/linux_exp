@@ -6,9 +6,11 @@
 #include <dirent.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <errno.h>
 
-#define READ_PROC_NUM 1
-#define COUNT_PROC_NUM 1
+#define READ_PROC_NUM 2
+#define COUNT_PROC_NUM 2
 #define BUFF_SIZE 4092
 #define MAX_READ_SIZE 4046
 
@@ -23,102 +25,185 @@ int work_pipe[2];
 int result_pipe[2];
 
 typedef struct count_result_buff{
-    unsigned int size;
     unsigned int times;
-    char word[50]; //max word length 46
+    char data[50]; //max word length 46
 }count_result;
 
+//total size is 4096
+//ensure automic operation
 typedef struct file_data_buff
 {
     int data_size;
     char data[BUFF_SIZE];
 }data_buff;
 
+//save file path
+//max file num is 100
+//max file name length is 100
 typedef struct dir_info{
     int file_num;
-    char file[100][100];//dir depth is 3
+    char file[100][100];
 }dir_file_list;
 
 dir_file_list file_list;
 
+//a word can contain uppercase letters, lowercase letters, '-', and '_'
 int is_partof_word(char c)
 {
-    return (nc >= 'a' || nc <= 'z' || nc >= 'A' ||
-                 nc <= 'Z' || nc == '-' || nc == '_')
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') 
+        || c == '-' || c == '_');
 }
 
+//read process funtion
+//one process read one file
 void read_proc(int offset)
 {
+    //close unnecessary pipe port
+    close(work_pipe[0]);
+    close(result_pipe[0]);
+    close(result_pipe[1]);
+
     int fd_read;
     int seq = offset;
     int size_read;
+    unsigned long pid = (unsigned long)getpid();
     data_buff buf;
-    while(seq < file_list.filenum)
+
+    while(seq < file_list.file_num)
     {
         fd_read = open(file_list.file[seq], O_RDONLY);
         if(fd_read == -1)
         {
-            printf("open file read error");
+            printf("open file read error : %s\n", file_list.file[seq]);
             seq += READ_PROC_NUM;
             continue;
         }
+
+        printf("read process %lu read file : %s\n", pid, file_list.file[seq]);
+
+        //read one file data to work_pipe
         while(1)
         {
             size_read = read(fd_read, buf.data, MAX_READ_SIZE);
             if(size_read == 0)
             {
-                printf("read process %lu : exit\n", tid);
+                printf("read process : read file: %s over\n", file_list.file[seq]);
                 break;
             }
             else if(size_read == -1)
             {
-                printf("read process %lu : read error\n", tid);
+                printf("read process : read file: %s error\n", file_list.file[seq]);
                 break;
             }
             else
             {
                 buf.data_size = size_read;
-                char nc = '-';
-                while(is_partof_word(nc))
+                char nc;
+
+                //ensure datablock does not divide a word
+                while(1)
                 {
-                    size_read = read(fd_read, &nc, 1)
+                    size_read = read(fd_read, &nc, 1);
                     if(size_read == 0)
                         break;
-                    if(is_partof_word(nc))
-                    {
-                        
+                    if(is_partof_word(nc)){
+                        buf.data[buf.data_size] = nc;
+                        buf.data_size++;
+                    }else{
+                        break;
                     }
                 }
-                write(work_pipe[1], (void*)&buf, sizeof(buf)); 
+                write(work_pipe[1], &buf, sizeof(buf)); 
             }
         }
+        printf("read process %lu read over : %s\n", pid, file_list.file[seq]);
+        close(fd_read);
+        seq += READ_PROC_NUM;
     }
+    printf("read process %lu process over\n", pid);
+    close(work_pipe[1]);
 }
 
+void count_words(map<string, int>& proc_result, data_buff & buf)
+{
+    //count words
+    int j;
+    int flag;
+    char word[50];
+    int i = 0;
+    map<string, int>::iterator iter;
+    while(i < buf.data_size)
+    {
+        //read a word
+        j = 0;
+        flag = 0;
+        memset(word, 0, sizeof(word));
+        while(1)
+        {   
+            if(is_partof_word(buf.data[i]) && i < buf.data_size){
+                flag = 1;
+                word[j] = buf.data[i];
+                j++;
+                i++;
+            }else{
+                i++;
+                break;
+            }
+        }
+
+        if(flag == 1)
+        {
+            //save word in map
+            string sword = word;
+            //printf("%s\n", word);
+            iter = proc_result.find(sword);
+            //if(iter == proc_result.end()){
+                //proc_result[sword] = 1;
+            //}else{
+            //default initiate to 0
+                proc_result[sword]++;
+            //}
+        }
+    }    
+}
+
+//count process funtion
+//read data form work pipe and count words
 void count_proc()
 {
+    close(work_pipe[1]);
+    close(result_pipe[0]);
     int n;
-    data_buff *buf;
+    unsigned long pid = (unsigned long)getpid();
+    data_buff buf;
     while(1)
     {
-        n = read(fd_pipe[0], (void*)&buf, sizeof(buf));
-        if(n == -1)
-        {
-            printf("write thread %lu pipe read error\n", tid);
-            pthread_exit((void*)1);
+        map<string, int> proc_result;
+        map<string, int>::iterator iter;
+        n = read(work_pipe[0], (void*)&buf, sizeof(buf));
+
+        if(n == -1){
+            printf("work pipe read error\n");
             break;
-        }
-        else if(n == 0)
-        {
-            printf("write thread %lu : write times: %d\n", tid,write_times);
-            pthread_exit((void*)2);
+        }else if(n == 0){
+            printf("work pipe read over\n");
             break;
+        }else{
+            count_words(proc_result, buf);
         }
-        else
+
+        printf("count process %lu count %d words\n", pid, (int)proc_result.size());
+        //write result in pipe
+        for(iter = proc_result.begin(); iter != proc_result.end(); iter++)
         {
-            
+            count_result result;
+            result.times = (*iter).second;
+            strcpy(result.data, (*iter).first.data());
+            write(result_pipe[1], &result, sizeof(result));
         }
     }
+    close(work_pipe[0]);
+    close(result_pipe[1]);
 }
 
 void read_file_list(char * base_path)
@@ -161,6 +246,8 @@ void read_file_list(char * base_path)
     return;
 }
 
+//test
+//output file list
 void print_file_list()
 {
     int i = 0;
@@ -176,15 +263,16 @@ int main(int argc, char * args[])
     pid_t count_pid[COUNT_PROC_NUM];
     int i;
     map<string, int> result;
+    map<string, int>::iterator iter;
 
-    if(argc !=2)
+    if(argc != 3)
     {
         printf("parameter error");
         return -1;
     }
 
     read_file_list(args[1]);
-    print_file_list();
+    //print_file_list();
 
     
     if(pipe(work_pipe) < 0){
@@ -206,7 +294,7 @@ int main(int argc, char * args[])
             //read child process
             //read text to pipe        
             read_proc(i); 
-            return 0;//not excute follow code
+            exit(0);//not excute follow code
         }
     }
 
@@ -218,15 +306,58 @@ int main(int argc, char * args[])
             //count child process
             //read text from pipe and count words
             count_proc();
-            return 0;
+            exit(0);
         }
     }
 
-    //save result to map
+
+    close(work_pipe[0]);
+    close(work_pipe[1]);
+    close(result_pipe[1]);
+
+    //read child process count result from result_pipe
+    //save final result to map
+    count_result word;
+    int n;
+    while(1)
+    {
+        n = read(result_pipe[0], &word, sizeof(word));
+        if(n == -1){
+            break;
+        }else if(n == 0){
+            close(result_pipe[0]);
+            break;
+        }else{
+            //save word in map
+            string sword = word.data;
+            //printf("%s\n", word);
+            //iter = result.find(sword);
+            //if(iter == result.end()){
+                //result[sword] = word.times;
+            //}else{
+            //default initiate to 0
+                result[sword] += word.times;
+            //}
+        }
+    }
 
 
     //write final result in file
-    
+    char * result_filename = args[2];
+    int fd_result = open(result_filename,  O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
+    if(fd_result == -1)
+    {
+        printf("open file write error: %s", strerror(errno));
+        return -1;
+    }
+    char buf[100];
+    for(iter = result.begin(); iter != result.end(); iter++)
+    {
+        memset(buf, 0, sizeof(buf));
+        sprintf(buf, "%s : %d\n", (*iter).first.data(), (*iter).second);
+        write(fd_result, buf, strlen(buf));
+    }
+    close(fd_result);
 
 
     //wait read process exit
@@ -234,8 +365,11 @@ int main(int argc, char * args[])
     {
        if(waitpid(read_pid[i], NULL, 0) != read_pid[i]){
            printf("waitpid error\n");
+       }else{
+           printf("read process exit\n");   
        }
     }
+    close(work_pipe[1]);
 
     //wait count process exit
     for(i = 0; i < COUNT_PROC_NUM; i++)
@@ -244,6 +378,7 @@ int main(int argc, char * args[])
             printf("waitpid error\n");
         }
     }
+    close(work_pipe[0]);
     return 0;
 }
 
