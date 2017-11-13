@@ -9,8 +9,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define READ_PROC_NUM 2
-#define COUNT_PROC_NUM 2
+#define READ_PROC_NUM 10
+#define COUNT_PROC_NUM 10
 #define BUFF_SIZE 4092
 #define MAX_READ_SIZE 4046
 
@@ -157,12 +157,8 @@ void count_words(map<string, int>& proc_result, data_buff & buf)
             string sword = word;
             //printf("%s\n", word);
             iter = proc_result.find(sword);
-            //if(iter == proc_result.end()){
-                //proc_result[sword] = 1;
-            //}else{
             //default initiate to 0
-                proc_result[sword]++;
-            //}
+            proc_result[sword]++;
         }
     }    
 }
@@ -192,7 +188,7 @@ void count_proc()
             count_words(proc_result, buf);
         }
 
-        printf("count process %lu count %d words\n", pid, (int)proc_result.size());
+        //printf("count process %lu count %d words\n", pid, (int)proc_result.size());
         //write result in pipe
         for(iter = proc_result.begin(); iter != proc_result.end(); iter++)
         {
@@ -330,16 +326,11 @@ int main(int argc, char * args[])
         }else{
             //save word in map
             string sword = word.data;
-            //printf("%s\n", word);
-            //iter = result.find(sword);
-            //if(iter == result.end()){
-                //result[sword] = word.times;
-            //}else{
             //default initiate to 0
-                result[sword] += word.times;
-            //}
+            result[sword] += word.times;
         }
     }
+    close(result_pipe[0]);
 
 
     //write final result in file
@@ -369,7 +360,6 @@ int main(int argc, char * args[])
            printf("read process exit\n");   
        }
     }
-    close(work_pipe[1]);
 
     //wait count process exit
     for(i = 0; i < COUNT_PROC_NUM; i++)
@@ -378,7 +368,6 @@ int main(int argc, char * args[])
             printf("waitpid error\n");
         }
     }
-    close(work_pipe[0]);
     return 0;
 }
 
