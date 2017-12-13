@@ -221,7 +221,6 @@ void read_file_list(char * base_path)
         strcpy(base,base_path);
         strcat(base,"/");
         strcat(base,ptr->d_name);
-        //printf("%s\n", base);
         
         if(strcmp(ptr->d_name, ".") == 0 || strcmp(ptr->d_name, "..") == 0)
             continue;
