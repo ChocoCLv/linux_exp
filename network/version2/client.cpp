@@ -6,10 +6,12 @@
 
 #include <iostream>
 
+using namespace std;
+
 class Client
 {
 private:
-	int sock = 0;
+	int sock;
 	char buf[100];
 	sockaddr_in serverAddr;
 public:
@@ -28,8 +30,8 @@ public:
 		memset(&serverAddr, 0, sizeof(sockaddr_in));
 
 		serverAddr.sin_family = AF_INET;
-		inet_pton(AF_INET, SVR_ADDR, &serverAddr.sin_addr);
-		serverAddr.sin_port = SVR_PORT;
+		inet_pton(AF_INET, addr, &serverAddr.sin_addr);
+		serverAddr.sin_port = port;
 
 		ret = connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
 		if(ret == -1)
@@ -39,7 +41,7 @@ public:
 		}
 	}
 	
-	int read(char *buf, int bufSize)
+	int readData(char *buf, int bufSize)
 	{
 		return read(sock, buf, 100);
 	}
@@ -52,6 +54,15 @@ public:
 		}
 		close(sock);
 	}
+};
 
-	
+int main(int argc, char* args[])
+{
+	Client client;
+	char buf[100];
+	client.connectToServer("127.0.0.1", 1234);
+	client.readData(buf, 100);
+	cout<<buf<<endl;
+	client.disconnectFromServer();
+	return 0;
 }
